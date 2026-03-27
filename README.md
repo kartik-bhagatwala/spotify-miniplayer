@@ -1,13 +1,14 @@
 # Spotify Miniplayer
 
-A minimal, borderless macOS miniplayer for Spotify. Shows album art full-bleed in a square window with playback controls that appear on hover.
+A minimal, borderless macOS miniplayer for Spotify. Shows borderless album art in a square window with playback controls that appear on hover.
+
+![Untitled](https://github.com/user-attachments/assets/1a7c0c2e-8823-4a9e-bf46-4abbc22a36c7)
 
 ## Features
 
 - Square, resizable, borderless window
-- Full-bleed album art from the currently playing Spotify track
-- Play/pause and skip controls appear on hover, fade after 2 seconds
-- Native traffic light buttons (close/minimize) overlaid on artwork
+- Borderless album art from the currently playing Spotify track
+- Play/pause and skip controls
 - Controls Spotify via AppleScript — no API keys needed
 
 ## Requirements
@@ -17,11 +18,7 @@ A minimal, borderless macOS miniplayer for Spotify. Shows album art full-bleed i
 
 ## Install
 
-Download the latest `.app.zip` from [Releases](../../releases), unzip, and drag to Applications.
-
-Since the app is unsigned, macOS will block it on first open. To run it:
-1. Right-click the app and select **Open**
-2. Click **Open** in the dialog
+Download the latest `miniplayer.zip` from [Releases](../../releases), unzip, and drag to Applications.
 
 On first launch, macOS will also ask to allow the app to control Spotify — click **OK**.
 
