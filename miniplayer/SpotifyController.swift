@@ -31,10 +31,13 @@ class SpotifyController {
 
     func nextTrack() {
         runAppleScript("tell application \"Spotify\" to next track")
+        // Small delay to let Spotify update its state
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { self.update() }
     }
 
     func previousTrack() {
         runAppleScript("tell application \"Spotify\" to previous track")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { self.update() }
     }
 
     private func update() {

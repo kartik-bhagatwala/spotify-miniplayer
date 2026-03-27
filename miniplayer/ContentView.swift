@@ -16,12 +16,13 @@ struct ContentView: View {
                 Color.black
             }
 
-            if showControls {
+            // Overlay group — always present, controlled by opacity
+            Group {
                 Color.black.opacity(0.3)
 
                 // Playback controls
                 HStack(spacing: 30) {
-                    Button(action: spotify.previousTrack) {
+                    Button { spotify.previousTrack(); resetFadeTimer() } label: {
                         Image(systemName: "backward.fill")
                             .font(.system(size: 24))
                             .foregroundStyle(.white)
@@ -29,7 +30,7 @@ struct ContentView: View {
                     }
                     .buttonStyle(.plain)
 
-                    Button(action: spotify.togglePlayPause) {
+                    Button { spotify.togglePlayPause(); resetFadeTimer() } label: {
                         Image(systemName: spotify.isPlaying ? "pause.fill" : "play.fill")
                             .font(.system(size: 40))
                             .foregroundStyle(.white)
@@ -37,7 +38,7 @@ struct ContentView: View {
                     }
                     .buttonStyle(.plain)
 
-                    Button(action: spotify.nextTrack) {
+                    Button { spotify.nextTrack(); resetFadeTimer() } label: {
                         Image(systemName: "forward.fill")
                             .font(.system(size: 24))
                             .foregroundStyle(.white)
@@ -60,9 +61,9 @@ struct ContentView: View {
                     .padding(12)
                     Spacer()
                 }
-
-                .transition(.opacity)
             }
+            .opacity(showControls ? 1 : 0)
+            .allowsHitTesting(showControls)
         }
         .frame(minWidth: 200, maxWidth: .infinity, minHeight: 200, maxHeight: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -79,9 +80,9 @@ struct ContentView: View {
             }
         }
 
-        fadeTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
+        fadeTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: false) { _ in
             Task { @MainActor in
-                withAnimation(.easeInOut(duration: 0.5)) {
+                withAnimation(.linear(duration: 3.0)) {
                     showControls = false
                 }
             }

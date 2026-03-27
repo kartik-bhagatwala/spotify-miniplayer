@@ -17,9 +17,13 @@ A minimal, borderless macOS miniplayer for Spotify. Shows album art full-bleed i
 
 ## Install
 
-Download the latest `.app` from [Releases](../../releases), unzip, and drag to Applications.
+Download the latest `.app.zip` from [Releases](../../releases), unzip, and drag to Applications.
 
-On first launch, macOS will ask to allow the app to control Spotify — click **OK**.
+Since the app is unsigned, macOS will block it on first open. To run it:
+1. Right-click the app and select **Open**
+2. Click **Open** in the dialog
+
+On first launch, macOS will also ask to allow the app to control Spotify — click **OK**.
 
 ## Build from source
 
