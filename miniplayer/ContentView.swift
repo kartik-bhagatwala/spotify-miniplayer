@@ -1,83 +1,172 @@
-//
-//  ContentView.swift
-//  miniplayer
-//
-//  Created by Kartik on 3/26/26.
-//
-
 import SwiftUI
-import CoreData
 
 struct ContentView: View {
-    @Environment(\.managedObjectContext) private var viewContext
-
-    @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
-        animation: .default)
-    private var items: FetchedResults<Item>
+    @State private var spotify = SpotifyController()
+    @State private var showControls = false
+    @State private var fadeTimer: Timer?
+    @State private var trackingArea: NSTrackingArea?
 
     var body: some View {
-        NavigationView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp!, formatter: itemFormatter)")
-                    } label: {
-                        Text(item.timestamp!, formatter: itemFormatter)
-                    }
-                }
-                .onDelete(perform: deleteItems)
+        ZStack {
+            if let art = spotify.albumArt {
+                Image(nsImage: art)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                Color.black
             }
-            .toolbar {
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+
+            if showControls {
+                Color.black.opacity(0.3)
+
+                // Playback controls
+                HStack(spacing: 30) {
+                    Button(action: spotify.previousTrack) {
+                        Image(systemName: "backward.fill")
+                            .font(.system(size: 24))
+                            .foregroundStyle(.white)
+                            .shadow(radius: 4)
                     }
+                    .buttonStyle(.plain)
+
+                    Button(action: spotify.togglePlayPause) {
+                        Image(systemName: spotify.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 40))
+                            .foregroundStyle(.white)
+                            .shadow(radius: 4)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: spotify.nextTrack) {
+                        Image(systemName: "forward.fill")
+                            .font(.system(size: 24))
+                            .foregroundStyle(.white)
+                            .shadow(radius: 4)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                // Window buttons (top-left)
+                VStack {
+                    HStack(spacing: 8) {
+                        WindowButton(color: .red, symbol: "xmark") {
+                            NSApp.windows.first?.close()
+                        }
+                        WindowButton(color: .yellow, symbol: "minus") {
+                            NSApp.windows.first?.miniaturize(nil)
+                        }
+                        Spacer()
+                    }
+                    .padding(12)
+                    Spacer()
+                }
+
+                .transition(.opacity)
+            }
+        }
+        .frame(minWidth: 200, maxWidth: .infinity, minHeight: 200, maxHeight: .infinity)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(MouseTracker(onMouseMoved: { resetFadeTimer() }, onMouseExited: { hideControls() }).allowsHitTesting(false))
+        .onAppear { spotify.startPolling() }
+        .onDisappear { spotify.stopPolling() }
+    }
+
+    private func resetFadeTimer() {
+        fadeTimer?.invalidate()
+        if !showControls {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showControls = true
+            }
+        }
+
+        fadeTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
+            Task { @MainActor in
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    showControls = false
                 }
             }
-            Text("Select an item")
         }
     }
 
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(context: viewContext)
-            newItem.timestamp = Date()
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            offsets.map { items[$0] }.forEach(viewContext.delete)
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
+    private func hideControls() {
+        fadeTimer?.invalidate()
+        withAnimation(.easeInOut(duration: 0.3)) {
+            showControls = false
         }
     }
 }
 
-private let itemFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .short
-    formatter.timeStyle = .medium
-    return formatter
-}()
+struct WindowButton: View {
+    let color: Color
+    let symbol: String
+    let action: () -> Void
+    @State private var isHovered = false
+    @State private var isPressed = false
 
-#Preview {
-    ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(isPressed ? color.opacity(0.6) : color)
+                .frame(width: 12, height: 12)
+            if isHovered {
+                Image(systemName: symbol)
+                    .font(.system(size: 7, weight: .bold))
+                    .foregroundStyle(.black.opacity(0.5))
+            }
+        }
+        .shadow(radius: 0.5)
+        .onHover { isHovered = $0 }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in
+                    isPressed = false
+                    action()
+                }
+        )
+    }
+}
+
+struct MouseTracker: NSViewRepresentable {
+    var onMouseMoved: () -> Void
+    var onMouseExited: () -> Void
+
+    func makeNSView(context: Context) -> TrackingView {
+        let view = TrackingView()
+        view.onMouseMoved = onMouseMoved
+        view.onMouseExited = onMouseExited
+        return view
+    }
+
+    func updateNSView(_ nsView: TrackingView, context: Context) {
+        nsView.onMouseMoved = onMouseMoved
+        nsView.onMouseExited = onMouseExited
+    }
+
+    class TrackingView: NSView {
+        var onMouseMoved: (() -> Void)?
+        var onMouseExited: (() -> Void)?
+
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            trackingAreas.forEach { removeTrackingArea($0) }
+            addTrackingArea(NSTrackingArea(
+                rect: bounds,
+                options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways],
+                owner: self
+            ))
+        }
+
+        override func mouseMoved(with event: NSEvent) {
+            onMouseMoved?()
+        }
+
+        override func mouseEntered(with event: NSEvent) {
+            onMouseMoved?()
+        }
+
+        override func mouseExited(with event: NSEvent) {
+            onMouseExited?()
+        }
+    }
 }
