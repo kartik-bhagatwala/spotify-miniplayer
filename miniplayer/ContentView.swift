@@ -5,6 +5,8 @@ struct ContentView: View {
     @State private var showControls = false
     @State private var fadeTimer: Timer?
     @State private var trackingArea: NSTrackingArea?
+    @AppStorage("showTrackInfo") private var showTrackInfo = true
+    @State private var showTimeRemaining = true
 
     var body: some View {
         ZStack {
@@ -45,6 +47,60 @@ struct ContentView: View {
                             .shadow(radius: 4)
                     }
                     .buttonStyle(.plain)
+                }
+
+                // Track info (bottom)
+                if showTrackInfo {
+                    VStack {
+                        Spacer()
+                        LinearGradient(
+                            colors: [.clear, .black.opacity(0.85)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: 120)
+                    }
+
+                    VStack {
+                        Spacer()
+
+                        // Track seeker
+                        HStack(spacing: 10) {
+                            Text(formatTime(spotify.trackPosition))
+                                .font(.system(size: 9))
+                                .foregroundStyle(.white.opacity(0.8))
+                                .monospacedDigit()
+                            SeekerBar(spotify: spotify)
+                                .frame(height: 12)
+                            Text(showTimeRemaining ? "-\(formatTime(spotify.trackDuration - spotify.trackPosition))" : formatTime(spotify.trackDuration))
+                                .font(.system(size: 9))
+                                .foregroundStyle(.white.opacity(0.8))
+                                .monospacedDigit()
+                                .onTapGesture { showTimeRemaining.toggle() }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 6)
+
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(spotify.trackName)
+                                    .font(.system(size: 16, weight: .bold))
+                                Text(spotify.artistName)
+                                    .font(.system(size: 12))
+                                if spotify.albumName != spotify.trackName {
+                                    Text(spotify.albumName)
+                                        .font(.system(size: 10))
+                                        .opacity(0.8)
+                                }
+                            }
+                            Spacer()
+                        }
+                        .foregroundStyle(.white)
+                        .shadow(radius: 4)
+                        .lineLimit(1)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 8)
+                    }
                 }
 
                 // Window buttons (top-left)
@@ -89,10 +145,93 @@ struct ContentView: View {
         }
     }
 
+    private func formatTime(_ seconds: Double) -> String {
+        let mins = Int(seconds) / 60
+        let secs = Int(seconds) % 60
+        return String(format: "%d:%02d", mins, secs)
+    }
+
     private func hideControls() {
         fadeTimer?.invalidate()
         withAnimation(.easeInOut(duration: 0.3)) {
             showControls = false
+        }
+    }
+}
+
+struct SeekerBar: View {
+    var spotify: SpotifyController
+    @State private var isHovered = false
+
+    var body: some View {
+        GeometryReader { geo in
+            let progress = spotify.trackDuration > 0 ? spotify.trackPosition / spotify.trackDuration : 0
+            let barHeight: CGFloat = isHovered ? 6 : 3
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(.white.opacity(0.3))
+                    .frame(height: barHeight)
+                Capsule()
+                    .fill(.white)
+                    .frame(width: geo.size.width * progress, height: barHeight)
+                // Grab pill
+                if isHovered {
+                    Capsule()
+                        .fill(.white)
+                        .frame(width: 14, height: 10)
+                        .shadow(radius: 2)
+                        .offset(x: geo.size.width * progress - 8)
+                }
+            }
+            .frame(maxHeight: .infinity, alignment: .center)
+            .overlay(SeekerDragView { fraction in
+                let clamped = max(0, min(1, fraction))
+                spotify.seek(to: clamped * spotify.trackDuration)
+            })
+            .onHover { hovering in
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    isHovered = hovering
+                }
+            }
+        }
+    }
+}
+
+struct SeekerDragView: NSViewRepresentable {
+    var onSeek: (Double) -> Void
+
+    func makeNSView(context: Context) -> SeekerNSView {
+        let view = SeekerNSView()
+        view.onSeek = onSeek
+        return view
+    }
+
+    func updateNSView(_ nsView: SeekerNSView, context: Context) {
+        nsView.onSeek = onSeek
+    }
+
+    class SeekerNSView: NSView {
+        var onSeek: ((Double) -> Void)?
+
+        override var mouseDownCanMoveWindow: Bool { false }
+
+        override func mouseDown(with event: NSEvent) {
+            window?.isMovableByWindowBackground = false
+            seek(with: event)
+        }
+
+        override func mouseDragged(with event: NSEvent) {
+            seek(with: event)
+        }
+
+        override func mouseUp(with event: NSEvent) {
+            window?.isMovableByWindowBackground = true
+        }
+
+        private func seek(with event: NSEvent) {
+            let location = convert(event.locationInWindow, from: nil)
+            let fraction = Double(location.x / bounds.width)
+            onSeek?(fraction)
         }
     }
 }
